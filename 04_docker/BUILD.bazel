@@ -1,0 +1,44 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary","py_image_layer")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load", "oci_push")
+
+
+py_binary(
+  name = "main",
+  srcs = ["main.py"],
+  deps = [
+      "@pypi//numpy",
+  ]
+)
+
+# This tells bazel to generate a requirements lock file
+compile_pip_requirements(
+    name = "requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements_lock.txt"
+)
+
+oci_image(
+    name = "image",
+    base = "@ubuntu",
+    entrypoint = ["/main"],
+    tars = py_image_layer(
+        name = "app",
+        binary = ":main",
+    ),
+    visibility = ["//visibility:public"],
+)
+
+oci_push(
+    name = "push",
+    image = ":image",
+    remote_tags = ["latest"],
+    repository = "index.docker.io:9899/mydockerrepo/image",
+)
+
+oci_load(
+    name = "load",
+    image = ":image",
+    repo_tags = ["local/hardware_controller_with_plugins:latest"],
+)
+
